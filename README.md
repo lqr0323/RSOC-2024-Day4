@@ -105,3 +105,41 @@ struct rt_i2c_bus_device *i2c_bus;      /* I2C总线设备句柄 */
 /* 查找I2C总线设备，获取I2C总线设备句柄 */
 i2c_bus = (struct rt_i2c_bus_device *)rt_device_find(name);
 ```
+# SPI 设备
+SPI 简介
+SPI（Serial Peripheral Interface，串行外设接口）是一种高速、全双工、同步通信总线，常用于短距离通讯，主要应用于 EEPROM、FLASH、实时时钟、AD 转换器、还有数字信号处理器和数字信号解码器之间。
+MOSI –主机输出 / 从机输入数据线（SPI Bus Master Output/Slave Input）。
+
+MISO –主机输入 / 从机输出数据线（SPI Bus Master Input/Slave Output)。
+
+SCLK –串行时钟线（Serial Clock），主设备输出时钟信号至从设备。
+
+CS –从设备选择线 (Chip select)。也叫 SS、CSB、CSN、EN 等，主设备输出片选信号至从设备。
+
+SPI 以主从方式工作，通常有一个主设备和一个或多个从设备。通信由主设备发起，主设备通过 CS 选择要通信的从设备，然后通过 SCLK 给从设备提供时钟信号，数据通过 MOSI 输出给从设备，同时通过 MISO 接收从设备发送的数据。
+
+如下图所示芯片有 2 个 SPI 控制器，SPI 控制器对应 SPI 主设备，每个 SPI 控制器可以连接多个 SPI 从设备。挂载在同一个 SPI 控制器上的从设备共享 3 个信号引脚：SCK、MISO、MOSI，但每个从设备的 CS 引脚是独立的。    
+![222]()
+
+  QSPI: QSPI 是 Queued SPI 的简写，是 Motorola 公司推出的 SPI 接口的扩展，比 SPI 应用更加广泛。在 SPI 协议的基础上，Motorola 公司对其功能进行了增强，增加了队列传输机制，推出了队列串行外围接口协议（即 QSPI 协议）。使用该接口，用户可以一次性传输包含多达 16 个 8 位或 16 位数据的传输队列。一旦传输启动，直到传输结束，都不需要 CPU 干预，极大的提高了传输效率。与 SPI 相比，QSPI 的最大结构特点是以 80 字节的 RAM 代替了 SPI 的发送和接收数据寄存器。
+
+Dual SPI Flash: 对于 SPI Flash 而言全双工并不常用，可以发送一个命令字节进入 Dual 模式，让它工作在半双工模式，用以加倍数据传输。这样 MOSI 变成 SIO0（serial io 0），MISO 变成 SIO1（serial io 1）,这样一个时钟周期内就能传输 2 个 bit 数据，加倍了数据传输。
+
+Quad SPI Flash: 与 Dual SPI 类似，Quad SPI Flash增加了两根 I/O 线（SIO2,SIO3），目的是一个时钟内传输 4 个 bit 数据。
+
+所以对于 SPI Flash，有标准 SPI Flash，Dual SPI Flash, Quad SPI Flash 三种类型。在相同时钟下，线数越多传输速率越高。  
+## 挂载 SPI 设备
+SPI 驱动会注册 SPI 总线，SPI 设备需要挂载到已经注册好的 SPI 总线上。  
+```
+rt_err_t rt_spi_bus_attach_device_cspin(struct rt_spi_device *device,
+                                        const char           *name,
+                                        const char           *bus_name,
+                                        rt_base_t            cs_pin,
+                                        void                 *user_data)
+```
+## 配置 SPI 设备
+挂载 SPI 设备到 SPI 总线后需要配置 SPI 设备的传输参数。  
+```
+rt_err_t rt_spi_configure(struct rt_spi_device *device,
+                          struct rt_spi_configuration *cfg)
+```
