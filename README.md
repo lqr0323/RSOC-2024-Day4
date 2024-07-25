@@ -155,4 +155,257 @@ struct rt_spi_device *spi_dev_w25q;     /* SPI 设备句柄 */
 /* 查找 spi 设备获取设备句柄 */
 spi_dev_w25q = (struct rt_spi_device *)rt_device_find(W25Q_SPI_DEVICE_NAME);
 ```
-## 作业代码   
+## 测试代码   
+
+### main.c
+```
+#include <rtthread.h>
+#include <rtdevice.h>
+#include <board.h>
+
+#define I2C_DEV_NAME "i2c1"    // 根据你的 BSP 配置修改
+#define SPI_DEV_NAME "spi10"   // 根据你的 BSP 配置修改
+#define VIRTUAL_DEV_NAME "virtual_dev"
+
+static rt_device_t i2c_dev;
+static rt_device_t spi_dev;
+static rt_device_t virtual_dev;
+
+/* 线程入口函数 */
+void demo_thread_entry(void *parameter)
+{
+    rt_uint8_t eeprom_data[16];
+    rt_uint8_t flash_data[16];
+    rt_err_t result;
+
+    /* 打开I2C设备 */
+    i2c_dev = rt_device_find(I2C_DEV_NAME);
+    if (i2c_dev == RT_NULL)
+    {
+        rt_kprintf("Failed to find I2C device\n");
+        return;
+    }
+    rt_device_open(i2c_dev, RT_DEVICE_FLAG_RDWR);
+
+    /* 打开SPI设备 */
+    spi_dev = rt_device_find(SPI_DEV_NAME);
+    if (spi_dev == RT_NULL)
+    {
+        rt_kprintf("Failed to find SPI device\n");
+        rt_device_close(i2c_dev);
+        return;
+    }
+    rt_device_open(spi_dev, RT_DEVICE_FLAG_RDWR);
+
+    /* 打开虚拟设备 */
+    virtual_dev = rt_device_find(VIRTUAL_DEV_NAME);
+    if (virtual_dev == RT_NULL)
+    {
+        rt_kprintf("Failed to find virtual device\n");
+        rt_device_close(i2c_dev);
+        rt_device_close(spi_dev);
+        return;
+    }
+    rt_device_open(virtual_dev, RT_DEVICE_FLAG_RDWR);
+
+    /* 从EEPROM读取数据 */
+    result = rt_device_read(i2c_dev, 0x00, eeprom_data, sizeof(eeprom_data));
+    if (result != sizeof(eeprom_data))
+    {
+        rt_kprintf("Failed to read data from EEPROM\n");
+    }
+
+    /* 将数据写入到虚拟设备 */
+    result = rt_device_write(virtual_dev, 0x00, eeprom_data, sizeof(eeprom_data));
+    if (result != sizeof(eeprom_data))
+    {
+        rt_kprintf("Failed to write data to virtual device\n");
+    }
+
+    /* 从虚拟设备读取数据 */
+    result = rt_device_read(virtual_dev, 0x00, flash_data, sizeof(flash_data));
+    if (result != sizeof(flash_data))
+    {
+        rt_kprintf("Failed to read data from virtual device\n");
+    }
+
+    /* 比较读取到的数据是否一致 */
+    if (rt_memcmp(eeprom_data, flash_data, sizeof(eeprom_data)) == 0)
+    {
+        rt_kprintf("Data transfer successful!\n");
+    }
+    else
+    {
+        rt_kprintf("Data transfer failed!\n");
+    }
+
+    /* 关闭设备 */
+    rt_device_close(i2c_dev);
+    rt_device_close(spi_dev);
+    rt_device_close(virtual_dev);
+}
+
+/* 初始化线程 */
+int demo_init(void)
+{
+    rt_thread_t demo_thread;
+
+    demo_thread = rt_thread_create("demo_thread",
+                                   demo_thread_entry,
+                                   RT_NULL,
+                                   2048,
+                                   RT_THREAD_PRIORITY_MAX - 2,
+                                   20);
+    if (demo_thread != RT_NULL)
+    {
+        rt_thread_startup(demo_thread);
+    }
+    else
+    {
+        rt_kprintf("Failed to create demo thread\n");
+    }
+
+    return 0;
+}
+
+int main(void)
+{
+    /* 系统初始化代码 */
+    rt_kprintf("RT-Thread initialization...\n");
+
+    /* 调用演示初始化函数 */
+    demo_init();
+
+    /* 系统其他初始化代码，如果需要的话 */
+
+    return 0;
+}
+```
+
+### drv_virtual.c  
+```
+#include <rtthread.h>
+#include <rtdevice.h>
+
+#define VIRTUAL_DEVICE_NAME "virtual_dev"
+#define VIRTUAL_BUFFER_SIZE 128
+
+static char virtual_buffer[VIRTUAL_BUFFER_SIZE];
+static struct rt_device virtual_device;
+
+/* 读操作 */
+static rt_size_t virtual_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_size_t size)
+{
+    if (pos + size > VIRTUAL_BUFFER_SIZE)
+        size = VIRTUAL_BUFFER_SIZE - pos;
+
+    rt_memcpy(buffer, &virtual_buffer[pos], size);
+    return size;
+}
+
+/* 写操作 */
+static rt_size_t virtual_write(rt_device_t dev, rt_off_t pos, const void *buffer, rt_size_t size)
+{
+    if (pos + size > VIRTUAL_BUFFER_SIZE)
+        size = VIRTUAL_BUFFER_SIZE - pos;
+
+    rt_memcpy(&virtual_buffer[pos], buffer, size);
+    return size;
+}
+
+/* 打开设备 */
+static rt_err_t virtual_open(rt_device_t dev, rt_uint16_t oflag)
+{
+    return RT_EOK;
+}
+
+/* 关闭设备 */
+static rt_err_t virtual_close(rt_device_t dev)
+{
+    return RT_EOK;
+}
+
+/* 控制设备 */
+static rt_err_t virtual_control(rt_device_t dev, int cmd, void *args)
+{
+    return RT_EOK;
+}
+
+int rt_hw_virtual_device_init(void)
+{
+    /* 初始化设备结构体 */
+    virtual_device.type = RT_Device_Class_Char;
+    virtual_device.init = RT_NULL;
+    virtual_device.open = virtual_open;
+    virtual_device.close = virtual_close;
+    virtual_device.read = virtual_read;
+    virtual_device.write = virtual_write;
+    virtual_device.control = virtual_control;
+    virtual_device.user_data = RT_NULL;
+
+    return rt_device_register(&virtual_device, VIRTUAL_DEVICE_NAME, RT_DEVICE_FLAG_RDWR);
+}
+INIT_DEVICE_EXPORT(rt_hw_virtual_device_init);
+```
+## rt_pin_irq_example.c
+```
+#include<rtthread.h>
+#include<rtdevice.h>
+#include<drv_gpio.h>
+
+#define KEY_UP      GET_PIN(C,5)
+#define KEY_DOWN    GET_PIN(C,1)
+#define KEY_LEFT    GET_PIN(C,0)
+#define KEY_RIGHT   GET_PIN(C,4)
+
+#define LOG_TAG     "pin.irp"
+#define LOG_LVL     LOG_LVL_DBG
+#include<ulog.h>
+
+void key_up_callback(void *args)
+{
+    int value = rt_pin_read(KEY_UP);
+    LOG_I("key up! %d",value);
+}
+
+void key_down_callback(void *args)
+{
+    int value = rt_pin_read(KEY_DOWN);
+    LOG_I("key down! %d",value);
+}
+
+void key_left_callback(void *args)
+{
+    int value = rt_pin_read(KEY_LEFT);
+    LOG_I("key left! %d",value);
+}
+
+void key_right_callback(void *args)
+{
+    int value = rt_pin_read(KEY_RIGHT);
+    LOG_I("key right! %d",value);
+}
+
+
+static int rt_pin_irq_example(void)
+{
+    rt_pin_mode(KEY_UP,PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY_DOWN,PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY_LEFT,PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY_RIGHT,PIN_MODE_INPUT_PULLUP);
+
+    rt_pin_attach_irq(KEY_UP,PIN_IRQ_MODE_FALLING,key_up_callback,RT_NULL);
+    rt_pin_attach_irq(KEY_DOWN,PIN_IRQ_MODE_FALLING,key_up_callback,RT_NULL);
+    rt_pin_attach_irq(KEY_DOWN,PIN_IRQ_MODE_FALLING,key_up_callback,RT_NULL);
+    rt_pin_attach_irq(KEY_DOWN,PIN_IRQ_MODE_FALLING,key_up_callback,RT_NULL);
+    
+    rt_pin_irq_enable(KEY_UP,PIN_IRQ_ENABLE);
+    rt_pin_irq_enable(KEY_DOWN,PIN_IRQ_ENABLE);
+    rt_pin_irq_enable(KEY_LEFT,PIN_IRQ_ENABLE);
+    rt_pin_irq_enable(KEY_RIGHT,PIN_IRQ_ENABLE);
+
+}
+MSH_CMD_EXPORT(rt_pin_irq_example,rt_pin_irq_example);
+```
+![332]()
+## 感觉今天学的信息量有点大，还是要再思考思考！！！！
