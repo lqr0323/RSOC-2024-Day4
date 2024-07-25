@@ -119,7 +119,7 @@ CS –从设备选择线 (Chip select)。也叫 SS、CSB、CSN、EN 等，主设
 SPI 以主从方式工作，通常有一个主设备和一个或多个从设备。通信由主设备发起，主设备通过 CS 选择要通信的从设备，然后通过 SCLK 给从设备提供时钟信号，数据通过 MOSI 输出给从设备，同时通过 MISO 接收从设备发送的数据。
 
 如下图所示芯片有 2 个 SPI 控制器，SPI 控制器对应 SPI 主设备，每个 SPI 控制器可以连接多个 SPI 从设备。挂载在同一个 SPI 控制器上的从设备共享 3 个信号引脚：SCK、MISO、MOSI，但每个从设备的 CS 引脚是独立的。    
-![222]()
+![222](https://github.com/lqr0323/RSOC-2024-Day4/blob/main/spi2.png)
 
   QSPI: QSPI 是 Queued SPI 的简写，是 Motorola 公司推出的 SPI 接口的扩展，比 SPI 应用更加广泛。在 SPI 协议的基础上，Motorola 公司对其功能进行了增强，增加了队列传输机制，推出了队列串行外围接口协议（即 QSPI 协议）。使用该接口，用户可以一次性传输包含多达 16 个 8 位或 16 位数据的传输队列。一旦传输启动，直到传输结束，都不需要 CPU 干预，极大的提高了传输效率。与 SPI 相比，QSPI 的最大结构特点是以 80 字节的 RAM 代替了 SPI 的发送和接收数据寄存器。
 
@@ -143,3 +143,16 @@ rt_err_t rt_spi_bus_attach_device_cspin(struct rt_spi_device *device,
 rt_err_t rt_spi_configure(struct rt_spi_device *device,
                           struct rt_spi_configuration *cfg)
 ```
+## 查找 SPI 设备
+在使用 SPI 设备前需要根据 SPI 设备名称获取设备句柄，进而才可以操作 SPI 设备，查找设备函数如下所示:  
+```
+rt_device_t rt_device_find(const char* name);
+```
+```
+#define W25Q_SPI_DEVICE_NAME     "qspi10"   /* SPI 设备名称 */
+struct rt_spi_device *spi_dev_w25q;     /* SPI 设备句柄 */
+
+/* 查找 spi 设备获取设备句柄 */
+spi_dev_w25q = (struct rt_spi_device *)rt_device_find(W25Q_SPI_DEVICE_NAME);
+```
+## 作业代码   
