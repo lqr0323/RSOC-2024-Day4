@@ -407,5 +407,5 @@ static int rt_pin_irq_example(void)
 }
 MSH_CMD_EXPORT(rt_pin_irq_example,rt_pin_irq_example);
 ```
-![332]()
+![332](https://github.com/lqr0323/RSOC-2024-Day4/blob/main/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202024-07-25%20174836.png)
 ## 感觉今天学的信息量有点大，还是要再思考思考！！！！
