@@ -92,3 +92,16 @@ I2C 简介
 I2C（Inter Integrated Circuit）总线是 PHILIPS 公司开发的一种半双工、双向二线制同步串行总线。I2C 总线传输数据时只需两根信号线，一根是双向数据线 SDA（serial data），另一根是双向时钟线 SCL（serial clock）。SPI 总线有两根线分别用于主从设备之间接收数据和发送数据，而 I2C 总线只使用一根线进行数据收发。
 
 I2C 和 SPI 一样以主从的方式工作，不同于 SPI 一主多从的结构，它允许同时有多个主设备存在，每个连接到总线上的器件都有唯一的地址，主设备启动数据传输并产生时钟信号，从设备被主设备寻址，同一时刻只允许有一个主设备。如下图所示：
+![111](https://github.com/lqr0323/RSOC-2024-Day4/blob/main/i2c1.png)  
+## 查找 I2C 总线设备
+在使用 I2C 总线设备前需要根据 I2C 总线设备名称获取设备句柄，进而才可以操作 I2C 总线设备，查找设备函数如下所示:  
+```
+rt_device_t rt_device_find(const char* name);
+```
+```
+#define AHT10_I2C_BUS_NAME      "i2c1"  /* 传感器连接的I2C总线设备名称 */
+struct rt_i2c_bus_device *i2c_bus;      /* I2C总线设备句柄 */
+
+/* 查找I2C总线设备，获取I2C总线设备句柄 */
+i2c_bus = (struct rt_i2c_bus_device *)rt_device_find(name);
+```
